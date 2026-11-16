@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local-only workspace (Advisor reviews, weekly email drafts, Drive mirror - NEVER pushed to public GitHub)
+.local_workspace/
+docs/
+
+# Large datasets (store raw data locally or in Drive)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/osrct/*
+!data/osrct/.gitkeep
+
+# Results raw checkpoints
+results/raw/*
+!results/raw/.gitkeep
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Secrets / credentials
+*.json.secret
+credentials.json
+token.json
+.env
+
+# OS files
+.DS_Store
+Thumbs.db

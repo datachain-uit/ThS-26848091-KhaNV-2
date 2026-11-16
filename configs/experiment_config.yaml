@@ -1,0 +1,97 @@
+# Cấu hình Thực nghiệm Trung tâm — Luận văn Thạc sĩ (ThS-26848091-KhaNV)
+# Bám sát Mục 5.1 & 5.2 của Review-2026-10-30
+
+project:
+  author: "Nguyễn Viết Kha"
+  student_id: "26848091"
+  title_vi: "Chọn tập biến điều chỉnh dựa trên đồ thị nhân quả có ràng buộc thời gian để ước lượng tác động can thiệp marketing: đánh giá bằng dữ liệu thí nghiệm ngẫu nhiên trong bán lẻ"
+  drive_folder_id: "1T6rygBC8jOJ2Cl7Y8NoqpdXVJFZBeNFP"
+  drive_folder_url: "https://drive.google.com/drive/u/0/folders/1T6rygBC8jOJ2Cl7Y8NoqpdXVJFZBeNFP"
+  random_seed: 42
+
+# 1. Định nghĩa Bộ dữ liệu & Phân tầng biến 3 tầng (Giải quyết triệt để vấn đề N5 & Q5)
+datasets:
+  hillstrom:
+    role: "core_mvp"
+    source: "scikit-uplift / MineThatData (Hillstrom, 2008)"
+    unit_of_analysis: "customer"
+    sample_size: 64000
+    treatments:
+      primary_pair: ["Womens E-Mail", "No E-Mail"]
+      secondary_pair: ["Mens E-Mail", "No E-Mail"]
+    outcomes:
+      primary: "conversion"   # Nhị phân: mua hàng trong 2 tuần sau email
+      secondary: "spend"      # Liên tục: chi tiêu thực tế trong 2 tuần
+    variable_tiers:
+      # Tầng 1: Hồ sơ & nhân khẩu học nền
+      tier1_demographics: ["zip_code", "newbie", "channel"]
+      # Tầng 2: Hành vi mua lịch sử trước can thiệp (Pre-treatment covariates)
+      tier2_pretreatment_behavior: ["recency", "history", "history_segment", "mens", "womens"]
+      # Tầng 3: Can thiệp (Treatment)
+      tier3_treatment: ["segment"]
+      # Tầng 4: Biến trung gian / hậu can thiệp (Post-treatment / Mediator - BẮT BUỘC cho giả thuyết H1)
+      tier4_post_treatment: ["visit"]
+      # Tầng 5: Kết cục (Outcome)
+      tier5_outcome: ["conversion", "spend"]
+    osrct_biasing_covariates: ["recency", "history", "mens", "womens"]  # Tập B (Oracle S6)
+
+  x5_retailhero:
+    role: "core_mvp"
+    source: "scikit-uplift / X5 Retail Group (2019)"
+    unit_of_analysis: "customer"
+    sample_size: 200039
+    treatments:
+      primary_pair: [1, 0]    # treatment_flg: 1 (SMS/communication) vs 0 (control)
+    outcomes:
+      primary: "target"       # Nhị phân: mua hàng sau truyền thông
+    variable_tiers:
+      tier1_demographics: ["age", "gender", "first_issue_date"]
+      tier2_pretreatment_behavior: ["recency_days", "tx_frequency", "monetary_total", "avg_basket_value", "first_redeem_delay"]
+      tier3_treatment: ["treatment_flg"]
+      tier4_post_treatment: []  # X5 gốc chỉ gồm giao dịch trước truyền thông (phục vụ H2, H3, H4)
+      tier5_outcome: ["target"]
+    osrct_biasing_covariates: ["age", "recency_days", "tx_frequency", "monetary_total"]
+
+  lenta:
+    role: "extension"
+    source: "scikit-uplift / Lenta BigTarget (2020)"
+    unit_of_analysis: "customer"
+    sample_size: 687029
+
+  criteo:
+    role: "extension"
+    source: "scikit-uplift / Criteo Uplift v2.1 (Diemert et al., 2018)"
+    unit_of_analysis: "user_impression"
+    variable_tiers:
+      tier2_pretreatment_behavior: ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11"]
+      tier3_treatment: ["treatment"]
+      tier4_post_treatment: ["exposure", "visit"]
+      tier5_outcome: ["conversion"]
+
+# 2. Cấu hình Thiết kế OSRCT (Observational Sampling from Randomized Controlled Trials - Gentzel et al., 2021)
+osrct:
+  holdout_rct_test_ratio: 0.30   # Giữ lại 30% RCT gốc làm tập test độc lập đánh giá CATE (Qini/AUUC)
+  bias_strengths: [0.5, 1.0, 2.0] # 3 mức cường độ thiên lệch (Thấp, Trung bình, Cao)
+  num_iterations: 50              # Tối thiểu 50 lần lặp lấy mẫu OSRCT cho mỗi cấu hình
+  base_seed: 2026
+
+# 3. Các Chiến lược Chọn tập điều chỉnh S0 - S6 (Mục 5.2d Review-2026-10-30)
+adjustment_strategies:
+  S0: "Unadjusted (Chênh lệch thô - Mức sàn)"
+  S1: "All Available Variables (Gồm cả biến hậu can thiệp - Kiểm tra H1)"
+  S2: "All Pre-treatment Variables (Chiến lược truyền thống hợp lệ - VanderWeele, 2019)"
+  S3: "Expert DAG Adjustment Set (Đồ thị chuyên gia -> Tập tối ưu O-set)"
+  S4: "Tiered Causal Discovery Adjustment Set (PC / FCI / GES / DirectLiNGAM có ràng buộc tầng -> O-set)"
+  S5: "Data-Driven SOTA Baselines (HTE-FS Tran & Zheleva 2022, Outcome-Adaptive Lasso, Häggström 2018)"
+  S6: "Oracle Adjustment Set (Tập biến B dùng để sinh thiên lệch OSRCT - Sanity check bias ~ 0)"
+
+# 4. Phương pháp Ước lượng ATE & CATE/Uplift
+estimators:
+  ate:
+    - "AIPW"
+    - "LinearDML"
+  cate:
+    - "CausalForestDML"
+    - "DRLearner"
+    - "XLearner"
+
